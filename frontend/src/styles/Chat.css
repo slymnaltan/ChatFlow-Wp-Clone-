@@ -1,0 +1,154 @@
+.chat-container {
+  display: flex;
+  height: 100vh;
+  background: #0a0e27;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 360px;
+  background: #0f1729;
+  border-right: 1px solid #2a3f5f;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  background: #1a1f3a;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a3f5f;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.logo-section h3 {
+  color: #667eea;
+  font-size: 18px;
+  margin: 0;
+}
+
+.logo-section p {
+  color: #8696a0;
+  font-size: 12px;
+  margin: 0;
+}
+
+.user-avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: #8696a0;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.icon-btn.logout-btn:hover {
+  color: #ff6b6b;
+}
+
+.main-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #0a0e27;
+  overflow: hidden;
+}
+
+.no-chat-selected {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8696a0;
+}
+
+.empty-state {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  color: #667eea;
+}
+
+.empty-state h2 {
+  color: #e9edef;
+  font-size: 24px;
+}
+
+.empty-state p {
+  color: #8696a0;
+  font-size: 16px;
+}
+
+.back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  padding: 8px;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 300px;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .main-chat {
+    width: 100%;
+  }
+
+  .back-btn.mobile-only {
+    display: flex;
+  }
+}
