@@ -8,6 +8,10 @@ RUN npm install
 
 COPY . .
 
+# Set environment variables for build
+ENV VITE_API_URL=http://localhost
+ENV VITE_SOCKET_URL=http://localhost
+
 RUN npm run build
 
 FROM nginx:alpine

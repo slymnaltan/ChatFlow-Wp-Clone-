@@ -58,7 +58,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
     if (msgs.length > 0) {
       const pipeline = redisClient.multi();
       msgs.forEach(msg => {
-        pipeline.lPush(cacheKey, JSON.stringify(msg));
+        pipeline.rPush(cacheKey, JSON.stringify(msg));
       });
       pipeline.expire(cacheKey, 3600); // 1 saat TTL
       await pipeline.exec();

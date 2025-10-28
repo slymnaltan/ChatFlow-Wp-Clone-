@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import { authenticateSocket } from './middleware/auth.js';
 import { User, Conversation, Message } from './models/index.js';
+import redisClient from './redis.js';
 
 dotenv.config();
 
@@ -22,6 +23,16 @@ const io = new Server(httpServer, {
 
 app.use(cors());
 app.use(express.json());
+
+// Disable caching to avoid stale 304 responses across logins
+app.set('etag', false);
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
 
 await connectDB();
 
@@ -38,11 +49,15 @@ const onlineUsers = new Map();
 
 io.use(authenticateSocket);
 
+console.log('🔌 Socket.io middleware kuruldu');
+
 io.on('connection', async (socket) => {
+  console.log('🔌 Yeni Socket.io bağlantısı:', socket.id);
   const userId = socket.user.id;
   onlineUsers.set(userId, socket.id);
   
   await User.findByIdAndUpdate(userId, { isOnline: true });
+  await redisClient.sAdd('online_users', String(userId));
   io.emit('user_status', { userId, isOnline: true });
 
   const convs = await Conversation.find({ participants: userId });
@@ -59,6 +74,13 @@ io.on('connection', async (socket) => {
       await msg.populate('sender', 'username');
       await Conversation.findByIdAndUpdate(data.conversationId, { updatedAt: new Date() });
       io.to(`conversation_${data.conversationId}`).emit('new_message', msg);
+
+      // Invalidate Redis caches related to this conversation
+      await redisClient.del(`messages:${data.conversationId}`);
+      const participants = await Conversation.findById(data.conversationId).select('participants');
+      for (const participantId of participants.participants) {
+        await redisClient.del(`user:${participantId}:conversations`);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -67,6 +89,7 @@ io.on('connection', async (socket) => {
   socket.on('disconnect', async () => {
     onlineUsers.delete(userId);
     await User.findByIdAndUpdate(userId, { isOnline: false });
+    await redisClient.sRem('online_users', String(userId));
     io.emit('user_status', { userId, isOnline: false });
   });
 });

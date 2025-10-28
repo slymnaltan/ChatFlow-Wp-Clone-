@@ -1,13 +1,41 @@
 version: '3.8'
 
 services:
-  backend:
+  nginx:
+    image: nginx:alpine
+    container_name: chatflow-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - backend1
+      - backend2
+      - frontend
+    networks:
+      - chatflow-network
+
+  backend1:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: chatflow-backend
-    ports:
-      - "5000:5000"
+    container_name: chatflow-backend-1
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+      - rabbitmq
+    networks:
+      - chatflow-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  backend2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chatflow-backend-2
     env_file:
       - ./backend/.env
     depends_on:
@@ -24,12 +52,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: chatflow-frontend
-    ports:
-      - "8080:80"
-    env_file:
-      - ./frontend/.env
-    depends_on:
-      - backend
     networks:
       - chatflow-network
 
