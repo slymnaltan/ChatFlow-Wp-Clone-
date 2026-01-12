@@ -8,7 +8,6 @@ import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import { authenticateSocket } from './middleware/auth.js';
 import { User, Conversation, Message } from './models/index.js';
-import { User, Conversation, Message } from './models/index.js';
 import redisClient from './redis.js';
 import rabbitmq from './rabbitmq.js';
 
