@@ -14,14 +14,38 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+const allowedOrigins = [
+  'http://localhost',
+  'http://localhost:80',
+  'http://localhost:8080',
+  'http://localhost:5173'
+];
+
+// Canlı ortamda CLIENT_URL tanımlıysa listeye ekle
+if (process.env.CLIENT_URL) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+
 const io = new Server(httpServer, {
-  cors: { 
-    origin: ['http://localhost', 'http://localhost:80', 'http://localhost:8080', 'http://localhost:5173'], 
-    credentials: true 
+  cors: {
+    origin: allowedOrigins,
+    credentials: true
   }
 });
 
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Mobile apps or curl requests (no origin) -> allow
+    if (!origin) return callback(null, true);
+    // Geliştirme ortamında veya listede varsa izin ver
+    if (allowedOrigins.indexOf(origin) !== -1 || !process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Disable caching to avoid stale 304 responses across logins
@@ -55,7 +79,7 @@ io.on('connection', async (socket) => {
   console.log('🔌 Yeni Socket.io bağlantısı:', socket.id);
   const userId = socket.user.id;
   onlineUsers.set(userId, socket.id);
-  
+
   await User.findByIdAndUpdate(userId, { isOnline: true });
   await redisClient.sAdd('online_users', String(userId));
   io.emit('user_status', { userId, isOnline: true });
