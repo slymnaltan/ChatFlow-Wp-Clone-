@@ -8,7 +8,9 @@ import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import { authenticateSocket } from './middleware/auth.js';
 import { User, Conversation, Message } from './models/index.js';
+import { User, Conversation, Message } from './models/index.js';
 import redisClient from './redis.js';
+import rabbitmq from './rabbitmq.js';
 
 dotenv.config();
 
@@ -59,6 +61,40 @@ app.use((req, res, next) => {
 });
 
 await connectDB();
+await rabbitmq.connect();
+
+// RabbitMQ Worker Başlat
+await rabbitmq.createQueue('chat_messages');
+
+// Kuyruktan mesajları dinle ve veritabanına yaz
+rabbitmq.consumeMessages('chat_messages', async (data) => {
+  try {
+    const msg = new Message({
+      conversation: data.conversationId,
+      sender: data.senderId,
+      content: data.content
+    });
+    await msg.save();
+    await msg.populate('sender', 'username');
+
+    // Conversation güncelle
+    await Conversation.findByIdAndUpdate(data.conversationId, { updatedAt: new Date() });
+
+    // Socket ile odadaki kullanıcılara gönder
+    io.to(`conversation_${data.conversationId}`).emit('new_message', msg);
+
+    // Cache Temizliği
+    await redisClient.del(`messages:${data.conversationId}`);
+    const participants = await Conversation.findById(data.conversationId).select('participants');
+    if (participants) {
+      for (const participantId of participants.participants) {
+        await redisClient.del(`user:${participantId}:conversations`);
+      }
+    }
+  } catch (err) {
+    console.error('Mesaj işleme hatası:', err);
+  }
+});
 
 // HEALTH CHECK
 app.get('/health', (req, res) => {
@@ -89,24 +125,19 @@ io.on('connection', async (socket) => {
 
   socket.on('send_message', async (data) => {
     try {
-      const msg = new Message({
-        conversation: data.conversationId,
-        sender: userId,
+      // Mesajı direkt DB'ye yazmak yerine Kuyruğa atıyoruz
+      await rabbitmq.sendMessage('chat_messages', {
+        conversationId: data.conversationId,
+        senderId: userId,
         content: data.content
       });
-      await msg.save();
-      await msg.populate('sender', 'username');
-      await Conversation.findByIdAndUpdate(data.conversationId, { updatedAt: new Date() });
-      io.to(`conversation_${data.conversationId}`).emit('new_message', msg);
 
-      // Invalidate Redis caches related to this conversation
-      await redisClient.del(`messages:${data.conversationId}`);
-      const participants = await Conversation.findById(data.conversationId).select('participants');
-      for (const participantId of participants.participants) {
-        await redisClient.del(`user:${participantId}:conversations`);
-      }
+      // Kullanıcıya "iletildi / kuyruğa alındı" onayı dönebiliriz (opsiyonel)
+      // socket.emit('message_queued', { tempId: data.tempId });
+
     } catch (e) {
-      console.error(e);
+      console.error('Mesaj kuyruğa atılamadı:', e);
+      socket.emit('error', { message: 'Mesaj gönderilemedi' });
     }
   });
 
